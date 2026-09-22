@@ -11,6 +11,24 @@ patches/
 
 Both are based on `493f05c8` (`fix(previews): preserve literal underscores in identifiers (#932)`).
 
+## Two ways to get them
+
+**As files** (what this directory holds): apply them to your own checkout, as below. Self-contained,
+no fork needed.
+
+**As a branch** (with full history, for reading or rebasing):
+
+```sh
+git clone --branch external-computer-api https://github.com/wayne998998/rakazo.git
+git log --oneline -3
+# c2d48d79 feat(computer): let one computer serve a screen per caller
+# 5f0e00db Add a service-account computer API for external agent harnesses
+# 493f05c8 fix(previews): preserve literal underscores in identifiers (#932)
+```
+
+That fork tracks upstream Rakazo on `main`, so the branch can be rebased onto a newer base with
+`git rebase main external-computer-api` when upstream moves.
+
 ## What each patch does
 
 ### 0001 — the external computer API
