@@ -1,0 +1,11 @@
+{
+  "name": "rakazo-computer-use",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Rakazo computer-use provider for DeepSeek Harness: per-session Rakazo Docker computers",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  }
+}

@@ -1,0 +1,7 @@
+.env
+.bridge-token
+node_modules
+
+# packaged bundle is committed on purpose; its build artefacts are not
+*.tgz.tmp
+dist/**/node_modules

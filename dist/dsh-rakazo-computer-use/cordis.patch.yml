@@ -1,0 +1,17 @@
+# Rakazo computer use for DeepSeek Harness.
+#
+# One deployment may enable one computer-use provider. This layer mounts the
+# seam and the Rakazo provider; a deployment that already runs another provider
+# must remove one of the two rows, because loading a second provider fails with
+# the registered provider name.
+#
+# The bridge endpoint is fixed here; the credential is read from BRIDGE_TOKEN in
+# the Harness environment (never stored in this file, never visible to a model).
+- insert:
+    - id: computer-use
+      name: '@deepseek-ai/dsh-computer-use'
+
+    - id: rakazo-computer-use
+      name: dsh-rakazo-computer-use
+      config:
+        url: http://127.0.0.1:7400

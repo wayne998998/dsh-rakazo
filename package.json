@@ -1,0 +1,12 @@
+{
+  "name": "dsh-rakazo-bridge",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test:bridge": "node test/bridge.mjs",
+    "test:screens": "node test/screens.mjs",
+    "test:plugin": "cd /home/ic/deepseek-harness && npx --yes pnpm@11.7.0 exec tsx /home/ic/dsh-rakazo-bridge/test/plugin.mjs",
+    "test": "npm run test:bridge && npm run test:screens && npm run test:plugin"
+  }
+}
