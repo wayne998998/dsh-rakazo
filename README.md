@@ -89,15 +89,15 @@ Three suites, all against a live bridge, Rakazo, and real containers. Nothing is
 computer a suite creates is destroyed before it finishes.
 
 ```sh
-npm run test:bridge     # 27 checks — control plane, capabilities, isolation, idempotency
-npm run test:screens    # 19 checks — screen naming rule, one display per screen
-npm run test:plugin     # 18 checks — plugin contracts, shared Teams, disposal
-npm test                # all three, in order
+RAKAZO_ENV_FILE=/path/to/rakazo/.env npm run test:bridge   # 27 checks — control plane
+RAKAZO_ENV_FILE=/path/to/rakazo/.env npm run test:screens  # 19 checks — one display per screen
+DSH_HARNESS=/path/to/deepseek-harness npm run test:plugin  # 18 checks — plugin contracts
 ```
 
-`test:bridge` and `test:screens` need only Node and the bridge env file. `test:plugin` needs the
-Harness packages, so its script `cd`s into the harness checkout; override the harness path in
-`package.json` if yours differs. See [docs/testing.md](docs/testing.md).
+`test:bridge` and `test:screens` need Node, this repo's `.env`, and `RAKAZO_ENV_FILE` pointing at
+the Rakazo deployment's `.env`. `test:plugin` additionally needs a Harness checkout, because the
+harness packages resolve only under its own module graph. Each suite destroys every computer it
+creates and asserts nothing was left behind. See [docs/testing.md](docs/testing.md).
 
 ## Repository layout
 

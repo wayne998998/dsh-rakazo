@@ -24,7 +24,12 @@ import { loadBridgeClientConfig } from "../src/config.mjs";
 const { url, token } = loadBridgeClientConfig();
 const service = { authorization: `Bearer ${token}` };
 /** The Rakazo deployment's env file; override when it lives elsewhere. */
-const rakazoEnvFile = process.env.RAKAZO_ENV_FILE ?? "/home/ic/rakazo/.env";
+// The Rakazo deployment's env file. There is no sane default, so require one
+// rather than pointing at whatever path happens to exist on the author's host.
+const rakazoEnvFile = process.env.RAKAZO_ENV_FILE;
+if (!rakazoEnvFile && !process.env.EXTERNAL_COMPUTER_TOKEN) {
+  throw new Error("set RAKAZO_ENV_FILE to the Rakazo .env, or EXTERNAL_COMPUTER_TOKEN directly");
+}
 const apiToken = process.env.EXTERNAL_COMPUTER_TOKEN
   ?? /^EXTERNAL_COMPUTER_TOKEN=(.*)$/m.exec(readFileSync(rakazoEnvFile, "utf8"))?.[1];
 if (!apiToken) throw new Error(`EXTERNAL_COMPUTER_TOKEN missing (set it, or point RAKAZO_ENV_FILE at a Rakazo .env): ${rakazoEnvFile}`);

@@ -21,16 +21,26 @@ npm test                # all three in order
 | `test/screens.mjs` | Node, this repo's `.env`, `RAKAZO_ENV_FILE` for the Rakazo token, Docker | Asserts displays inside containers |
 | `test/plugin.mjs` | The Harness packages | Mounts the real DSH registries |
 
-`test:plugin` runs from the harness checkout because the harness packages resolve from there. Adjust
-the path in `package.json` if your layout differs.
+`test:plugin` needs a DeepSeek Harness checkout, because the harness's packages resolve only under
+its own module graph (its `@deepseek-ai/cordis` is a pnpm workspace package, so plain `node` cannot
+import it). `scripts/run-plugin-suite.mjs` stages the suite inside that checkout, runs it with the
+harness's own toolchain, and removes the staging afterwards:
+
+```sh
+DSH_HARNESS=/path/to/deepseek-harness npm run test:plugin
+# or: node scripts/run-plugin-suite.mjs --harness /path/to/deepseek-harness
+```
+
+There is no default harness path: omitting it exits with usage rather than guessing.
 
 Environment overrides, so the suites are not tied to one machine:
 
 | Variable | Used by | Default |
 | --- | --- | --- |
 | `BRIDGE_ENV_FILE` | all | `<repo>/.env` |
-| `RAKAZO_ENV_FILE` | screens | `/home/ic/rakazo/.env` |
-| `EXTERNAL_COMPUTER_TOKEN` | screens | read from `RAKAZO_ENV_FILE` |
+| `RAKAZO_ENV_FILE` | screens | **required** — path to the Rakazo deployment's `.env` |
+| `EXTERNAL_COMPUTER_TOKEN` | screens | alternative to `RAKAZO_ENV_FILE` |
+| `DSH_HARNESS` | plugin | **required** — path to a DeepSeek Harness checkout |
 
 ## What each suite actually proves
 

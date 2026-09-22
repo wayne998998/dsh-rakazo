@@ -19,8 +19,8 @@
  * This suite needs the Harness packages, so it runs from the harness checkout
  * with the bridge's env file in place:
  *
- *   cd <deepseek-harness checkout>
- *   npx --yes pnpm@11.7.0 exec tsx <this repo>/test/plugin.mjs
+ *   node test/plugin.mjs --harness /path/to/deepseek-harness
+ *   DSH_HARNESS=/path/to/deepseek-harness npm run test:plugin
  *
  * `test/bridge.mjs` and `test/screens.mjs` are dependency-free and run with
  * plain `node` from this directory.
@@ -38,7 +38,15 @@ const bridgeEnvFile = process.env.BRIDGE_ENV_FILE ?? fileURLToPath(new URL("../.
 const bridgeToken = /^BRIDGE_TOKEN=(.*)$/m.exec(readFileSync(bridgeEnvFile, "utf8"))?.[1];
 if (!bridgeToken) throw new Error("bridge token missing from the bridge env file");
 
-const pluginEntry = process.env.RAKAZO_PLUGIN ?? "../plugin/index.js";
+/** The harness checkout to load packages from: `--harness <path>` or `$DSH_HARNESS`. */
+const harnessArg = process.argv.indexOf("--harness");
+const harnessRoot = harnessArg === -1 ? process.env.DSH_HARNESS : process.argv[harnessArg + 1];
+if (!harnessRoot) {
+  throw new Error(
+    "this suite needs a DeepSeek Harness checkout to resolve its packages; pass --harness <path> or set DSH_HARNESS",
+  );
+}
+const pluginEntry = new URL("../plugin/index.js", import.meta.url).href;
 const plugin = await import(pluginEntry);
 
 let failures = 0;
