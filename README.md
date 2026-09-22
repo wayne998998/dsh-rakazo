@@ -1,10 +1,44 @@
 # dsh-rakazo
 
-Give a [DeepSeek Harness](https://github.com/deepseek-harness/deepseek-harness) agent its own
-disposable Linux computer, and let several agents of one Team share one computer while each keeps
-its own screen.
+**Give an AI agent a computer of its own.**
 
-This repository is the integration layer between two systems:
+This connects [Rakazo](https://github.com/elie222/rakazo)'s machine management to the
+[DeepSeek Harness](https://github.com/deepseek-harness/deepseek-harness), so an agent session gets a
+disposable Linux desktop: run commands, read and write files, look at the screen, drive a browser —
+and it is destroyed when the session is done. Several agents of one Team can share a single computer
+while each keeps its own screen.
+
+The problem it actually solves is **ownership and authorization**, not "another exec wrapper":
+
+- **Identity is derived, not remembered.** `botId = "dsh-" + scope`, where the scope is the session id
+  — or the Team root when sharing. A restarted harness re-adopts the same computer on its own: no
+  state file, no leases, no heartbeats, no sweeper. Those mechanisms were removed because they are the
+  part that breaks by itself, and one of them did: a computer whose lease silently stopped renewing
+  was reclaimed while its session was still live.
+- **Boundaries are drawn in credentials.** Three tokens, deliberately not interchangeable: the harness
+  process holds only `BRIDGE_TOKEN`; Rakazo's service token stays in a stateless proxy process; the
+  sandbox supervisor token is never handed out. The reason is blunt — **an agent can read its own
+  environment**, so `bash` can read `/proc/<pid>/environ`. Per-computer authorization is a capability:
+  minted by the proxy, stored only as a hash, held in the plugin's memory. Knowing another session's
+  computer id buys you nothing.
+- **Sharing is a stated trade-off.** With `share: true`, several agents of one Team use the same
+  computer while each gets its own screen (Rakazo keys a display per screen identity; three observers
+  really do produce three Xvfb instances). They can therefore read each other's files and logins. That
+  is what makes a handoff possible, so the docs say it plainly: *do not put a credential on a shared
+  computer that another teammate must not use — a shared computer is not a security boundary.*
+
+Two things this project cares about more than features:
+
+**Complexity belongs with whoever understands it.** Machine lifecycle, workspace checkpointing, and
+idle suspension are Rakazo's job. This layer does ownership and authorization, and nothing else.
+
+**Claims need falsifiable evidence.** Every check runs against real Rakazo and real containers, and
+each load-bearing assertion was verified by deliberately breaking the behaviour — making `destroy`
+report success without deleting, removing screen naming, reinstating the flawed shared-mode guard — to
+confirm the check actually fails. That discipline also caught two of the author's own tests that could
+never fail, one of which had been propping up a wrong "this is fixed" conclusion.
+
+## How it fits together
 
 - **Rakazo** owns machines: it provisions Docker containers, keeps a persistent workspace, suspends
   idle computers, and exposes a service-account API for programs outside its own UI.
