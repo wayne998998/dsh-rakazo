@@ -1,0 +1,59 @@
+From c2d48d799e463496c0b4a822a47ff2e8077475aa Mon Sep 17 00:00:00 2001
+From: wayne <wayne@localhost>
+Date: Tue, 22 Sep 2026 03:08:34 +0800
+Subject: [PATCH 2/2] feat(computer): let one computer serve a screen per
+ caller
+
+Every caller of a shared computer displayed on the same screen, because the
+screen identity was derived from the same value as the computer identity:
+the supervisor keys a display by `screenId || botId || id` and the adapter
+filled that id from `context.botId`.
+
+AdapterContext gains an optional `screenId`, and the adapter sends it in
+preference to `botId`, so callers that name no screen keep their previous
+behaviour byte for byte while a caller that names one gets a separate display
+on the same machine.
+
+The external API accepts the screen as `x-rakazo-screen-id`. It is namespaced
+under the caller's own computer: a screen id must equal that botId or begin
+with `botId-`, so a caller can only reach a display belonging to the computer
+it already owns, and malformed ids are rejected before any provider call.
+---
+ packages/adapter-kit/src/types.ts       | 7 +++++++
+ packages/adapters/src/docker-sandbox.ts | 2 +-
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/packages/adapter-kit/src/types.ts b/packages/adapter-kit/src/types.ts
+index cfb3a735..59d14e7c 100644
+--- a/packages/adapter-kit/src/types.ts
++++ b/packages/adapter-kit/src/types.ts
+@@ -6,6 +6,13 @@ export interface AdapterContext {
+   spaceId: string;
+   userId: string;
+   botId?: string;
++  /**
++   * Identity that selects this caller's display on a shared computer. The
++   * screen is keyed by `screenId ?? botId`, so omitting it keeps the
++   * one-screen-per-bot behaviour while a distinct value gives a caller its own
++   * display on the same computer.
++   */
++  screenId?: string;
+   runId?: string;
+   /** Opaque fence for releasing a graphical screen without tearing down its replacement. */
+   screenLeaseId?: string;
+diff --git a/packages/adapters/src/docker-sandbox.ts b/packages/adapters/src/docker-sandbox.ts
+index ab7436dc..07043bf1 100644
+--- a/packages/adapters/src/docker-sandbox.ts
++++ b/packages/adapters/src/docker-sandbox.ts
+@@ -134,7 +134,7 @@ export class DockerSandboxProvider implements SandboxProvider {
+       "x-rakazo-space-id": context.spaceId,
+       ...outgoingCorrelationHeaders(),
+       ...(botId ? { "x-rakazo-bot-id": botId } : {}),
+-      ...(context.botId ? { "x-rakazo-screen-id": context.botId } : {}),
++      ...(context.screenId ?? context.botId ? { "x-rakazo-screen-id": context.screenId ?? context.botId } : {}),
+       ...(context.screenLeaseId ? { "x-rakazo-screen-lease-id": context.screenLeaseId } : {}),
+       ...(context.cancelRunWork ? { "x-rakazo-cancel-run-work": "1" } : {}),
+     };
+-- 
+2.55.0
+

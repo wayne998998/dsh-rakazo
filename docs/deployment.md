@@ -15,6 +15,11 @@ not yet clear.
 
 ## Step 1 — Enable the external computer surface in Rakazo
 
+> **This requires two patches to Rakazo that are not yet upstream.** Apply
+> [`patches/`](../patches/README.md) to a Rakazo checkout first; they add the external computer API
+> and the per-caller screen parameter. Both are verified to apply to `493f05c8` and to pass their
+> tests on a fresh clone.
+
 The surface is **disabled unless both values are set**, so this step is deliberate.
 
 In the Rakazo deployment's `.env`:

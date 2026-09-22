@@ -110,6 +110,7 @@ src/                 bridge: HTTP control plane, stateless
 plugin/              the DSH plugin: seven tools, identity, disposal
 providers/           native tool routing (fs + shell) over the same bridge
 test/                the three suites
+patches/             REQUIRED upstream Rakazo changes — apply these first
 dist/                packaged bundle for `dsh plugin add`
 docs/                architecture, deployment, testing, security
 ```
@@ -123,6 +124,7 @@ docs/                architecture, deployment, testing, security
 | [testing.md](docs/testing.md) | What each suite proves and how to extend them |
 | [security.md](docs/security.md) | Trust boundaries, what isolation is and is not guaranteed |
 | [contributing.md](docs/contributing.md) | Conventions, invariants to preserve, known gaps |
+| [patches/README.md](patches/README.md) | The required upstream Rakazo changes |
 
 ## Known limitations
 
