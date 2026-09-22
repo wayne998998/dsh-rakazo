@@ -1,4 +1,4 @@
-From c2d48d799e463496c0b4a822a47ff2e8077475aa Mon Sep 17 00:00:00 2001
+From 599336d78c8b3cfc65e99734ab101b8021e055dd Mon Sep 17 00:00:00 2001
 From: wayne <wayne@localhost>
 Date: Tue, 22 Sep 2026 03:08:34 +0800
 Subject: [PATCH 2/2] feat(computer): let one computer serve a screen per
@@ -24,7 +24,7 @@ it already owns, and malformed ids are rejected before any provider call.
  2 files changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/packages/adapter-kit/src/types.ts b/packages/adapter-kit/src/types.ts
-index cfb3a735..59d14e7c 100644
+index 76c075f5..68231656 100644
 --- a/packages/adapter-kit/src/types.ts
 +++ b/packages/adapter-kit/src/types.ts
 @@ -6,6 +6,13 @@ export interface AdapterContext {

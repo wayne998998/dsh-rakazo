@@ -9,7 +9,9 @@ patches/
   0002-feat-computer-let-one-computer-serve-a-screen-per-ca.patch    (8 lines)
 ```
 
-Both are based on `493f05c8` (`fix(previews): preserve literal underscores in identifiers (#932)`).
+Both are based on `5dc3f824` (`fix(adapters): preserve allOf tool schemas through Pi conversion (#970)`),
+which is upstream `main` as of this writing. They apply cleanly there with no conflicts, and the
+rebased tree passes the full API suite (390 checks) plus the adapter and supervisor suites (82).
 
 ## Two ways to get them
 
@@ -21,9 +23,9 @@ no fork needed.
 ```sh
 git clone --branch external-computer-api https://github.com/wayne998998/rakazo.git
 git log --oneline -3
-# c2d48d79 feat(computer): let one computer serve a screen per caller
-# 5f0e00db Add a service-account computer API for external agent harnesses
-# 493f05c8 fix(previews): preserve literal underscores in identifiers (#932)
+# 599336d7 feat(computer): let one computer serve a screen per caller
+# 8998c2ec Add a service-account computer API for external agent harnesses
+# 5dc3f824 fix(adapters): preserve allOf tool schemas through Pi conversion (#970)
 ```
 
 That fork tracks upstream Rakazo on `main`, so the branch can be rebased onto a newer base with
@@ -59,7 +61,7 @@ display; anything else is refused with `403 screenId does not belong to this com
 ```sh
 git clone https://github.com/elie222/rakazo.git
 cd rakazo
-git checkout 493f05c8                 # the patches' base
+git checkout 5dc3f824                 # the patches' base
 
 # git am needs a committer identity; set one or pass it inline
 git -c user.name="you" -c user.email="you@example.com" am \
@@ -68,10 +70,10 @@ git -c user.name="you" -c user.email="you@example.com" am \
 git log --oneline -3
 # <sha> feat(computer): let one computer serve a screen per caller
 # <sha> Add a service-account computer API for external agent harnesses
-# 493f05c8 fix(previews): preserve literal underscores in identifiers (#932)
+# 5dc3f824 fix(adapters): preserve allOf tool schemas through Pi conversion (#970)
 ```
 
-If `git am` reports a conflict, the base has moved. Either reset to `493f05c8`, or apply with
+If `git am` reports a conflict, upstream has moved past `5dc3f824`. Either reset to that commit, or apply with
 `git apply -3` and resolve — the surface is self-contained (`apps/api/src/external-computers.ts`,
 plus a mount in `app.ts` and two env keys), so conflicts should be mechanical.
 
@@ -91,13 +93,13 @@ This was verified on a fresh clone, not on the development tree:
 
 ```sh
 git clone <rakazo> /tmp/verify && cd /tmp/verify
-git reset --hard 493f05c8 && git clean -fd
+git reset --hard 5dc3f824 && git clean -fd
 git -c user.name=t -c user.email=t@localhost am <patches>/*.patch
 pnpm install && pnpm --filter @rakazo/db generate
 
-npx vitest run apps/api/src/external-computers.test.ts                    # 18 passed
-npx vitest run packages/adapters/src/docker-sandbox.test.ts               # 21 passed
-npx vitest run infra/sandboxes/supervisor/src/computer-spec.test.ts       # 60 passed
+npx vitest run apps/api/src                                       # 390 passed (30 files)
+npx vitest run packages/adapters/src/docker-sandbox.test.ts       # 21 passed
+npx vitest run infra/sandboxes/supervisor/src/computer-spec.test.ts # 61 passed
 ```
 
 The `db generate` step is not optional: skipping it fails unrelated suites with
