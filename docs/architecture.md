@@ -45,11 +45,16 @@ botId = "dsh-" + scopeKey
 
 `scopeKey` resolution (`plugin/index.js`, `scopeKeyOf`):
 
-| Situation | Scope | Result |
-| --- | --- | --- |
-| Default (no sharing) | the session's own id | one computer per session |
-| `share: true`, top-level agent | its own session id | the Team Lead's computer |
-| `share: true`, teammate | the Team root, found by walking `parentSession` | the same computer as its Team |
+| Row config | Caller | Scope | Result |
+| --- | --- | --- | --- |
+| Default | anyone | the session's own id | one computer per session |
+| `share: true` | top-level agent | its own session id | the Team Lead's computer |
+| `share: true` | teammate | the Team root, found by walking `parentSession` | the same computer as its Team |
+| `account: <name>` | anyone | the account name, ignoring the caller | one machine for every conversation |
+
+Account mode short-circuits the lookup: nothing about the caller matters, so lineage is never read.
+That is also why it is the widest sharing mode, and the only one where disposal does not end the
+computer — see [security.md](security.md#shared-computers-are-not-a-security-boundary).
 
 Identity comes from `agent.session.id` — the harness convention the ACP bridge also relies on
 (`Agent` itself guarantees only `{ id }`, see `packages/core/agent/src/types.ts`). Lineage comes from

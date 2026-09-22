@@ -126,6 +126,7 @@ Row `config` accepts:
 | `envFile` | — | Read the bridge's `.env` (development shortcut). |
 | `keep` | `false` | Disposal forgets instead of destroys, so the same identity re-adopts later. |
 | `share` | `false` | Every teammate of one Agent Team uses that Team's computer. |
+| `account` | — | Every conversation uses one machine named `dsh-<account>`, outliving all of them. |
 
 Verify the layer composed:
 
@@ -154,6 +155,23 @@ registered provider name, so remove any other provider row first.
 These advertise a `sandboxMode`, which makes the harness require `ctx.sandboxPolicy` in the
 composition. `dsh-base` already mounts it; a hand-built composition must too, or the bash tool fails
 at load with `the mounted bash executor confines but ctx.sandboxPolicy is missing`.
+
+**One persistent computer for every conversation** is the account mode. It needs no extra packages:
+
+```yaml
+- insert:
+    - id: rakazo-computer-use
+      name: '/absolute/path/to/dsh-rakazo-bridge/plugin/index.js'
+      config:
+        envFile: /absolute/path/to/dsh-rakazo-bridge/.env
+        account: my-team
+```
+
+Every conversation resolves to the same `dsh-my-team` computer, so files and browser logins carry
+across them, and each conversation still gets its own screen. Disposal does **not** end it: only an
+explicit `rakazo_computer_destroy` does. Two consequences to plan for — nothing reclaims it
+automatically (see [../patches/README.md](../patches/README.md) and the pruning note below), and it
+removes cross-conversation isolation by design. Verify with `npm run test:account`.
 
 **Shared computer per Agent Team** requires the Agent Team packages, and they replace the direct
 delegation tools:

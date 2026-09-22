@@ -7,6 +7,7 @@
     "test:bridge": "node test/bridge.mjs",
     "test:screens": "node test/screens.mjs",
     "test:plugin": "node scripts/run-plugin-suite.mjs",
-    "test": "npm run test:bridge && npm run test:screens && npm run test:plugin"
+    "test": "npm run test:bridge && npm run test:screens && npm run test:plugin && npm run test:account",
+    "test:account": "node scripts/run-plugin-suite.mjs --suite test/account.mjs"
   }
 }

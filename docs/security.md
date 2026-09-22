@@ -50,8 +50,20 @@ Consequences that are load-bearing:
 
 ## Shared computers are not a security boundary
 
+There are two ways to widen sharing, and both give up isolation on purpose:
+
+| Mode | Shares across | Outlives conversations |
+| --- | --- | --- |
+| `share: true` | the teammates of one Agent Team | no — the Lead's disposal ends it |
+| `account: <name>` | **every conversation** on the deployment | yes — only an explicit destroy ends it |
+
 With `share: true` every teammate of one Agent Team uses the same computer: the same filesystem, the
-same browser sessions, the same logins. A teammate can read what another teammate wrote.
+same browser sessions, the same logins. A teammate can read what another teammate wrote. Account mode
+widens exactly that to every conversation, which is what makes a persistent team computer possible:
+sign in once, and every conversation is signed in.
+
+Because account mode removes cross-conversation isolation entirely, treat its machine as one trust
+domain: any credential placed on it is available to every conversation that can reach it.
 
 This is the design, not an oversight — it is what makes a handoff work at all. It is exactly the
 model Rakazo documents for team computers: separate work surfaces, not separate security boundaries.
@@ -59,8 +71,8 @@ The corollary is stated plainly so nobody relies on the wrong thing:
 
 > Do not put a credential on a shared computer that another teammate must not use.
 
-Leave `share` unset when conversations must be isolated from one another. The default is one computer
-per session, and that isolation is enforced by capability and by scope.
+Leave `share` and `account` unset when conversations must be isolated from one another. The default is
+one computer per session, and that isolation is enforced by capability and by scope.
 
 ## What a computer isolates you from
 

@@ -31,6 +31,11 @@ let bridgeToken;
 let keepComputers = false;
 /** When set, every teammate of one Team shares that Team's computer. */
 let shareComputers = false;
+/**
+ * When set, every conversation shares one machine named after this account.
+ * The widest sharing mode: it removes cross-session isolation on purpose.
+ */
+let accountScope;
 
 function envValue(key, envFile) {
   if (process.env[key]) return process.env[key];
@@ -54,6 +59,7 @@ function configure(config) {
   bridgeToken = (typeof settings.token === "string" && settings.token ? settings.token : undefined) ?? envValue("BRIDGE_TOKEN", envFile);
   keepComputers = settings.keep === true;
   shareComputers = settings.share === true;
+  accountScope = typeof settings.account === "string" && settings.account ? settings.account : undefined;
 }
 
 /** sessionId -> Map(computerId -> capability). Process-local, never persisted by the harness. */
@@ -62,12 +68,20 @@ const owned = new Map();
 /**
  * The computer a conversation works on.
  *
- * With `share: true` every teammate of one Team uses the same computer, the way
- * a shared team computer works: a teammate is a child session, so the root of
- * the lineage is the Team, and the identity becomes that root. This is a
- * deliberate trade — teammates can then read each other's files and browser
- * sessions — so it is opt-in per deployment and the isolation default is
- * unchanged.
+ * Three modes, each opt-in and each trading isolation for continuity:
+ *
+ * | Row config | Scope | Effect |
+ * | --- | --- | --- |
+ * | (default) | the session id | one computer per conversation |
+ * | `share: true` | the Team root | teammates share, each with its own screen |
+ * | `account: <name>` | that fixed name | every conversation shares one computer |
+ *
+ * The account mode exists to reproduce a persistent team computer: one machine,
+ * one set of files, one browser session, across conversations. It is the widest
+ * sharing this plugin offers and it removes cross-session isolation entirely —
+ * any two conversations reach the same files and logins. Configure it
+ * deliberately, and do not put a credential on that computer that every
+ * conversation must not use.
  *
  * Identity comes from `agent.session.id`, the harness convention the ACP bridge
  * also relies on (`Agent` itself guarantees only `{ id }`). Lineage comes from
@@ -80,6 +94,9 @@ const owned = new Map();
  * from any source is reported instead of guessed.
  */
 function scopeKeyOf(agent, ctx, { optional = false } = {}) {
+  // An account deployment names its machine explicitly, so nothing about the
+  // caller matters: every conversation resolves to the same scope.
+  if (accountScope) return accountScope;
   const own = typeof agent?.session?.id === "string" && agent.session.id
     ? agent.session.id
     : typeof agent?.id === "string" && agent.id
@@ -110,7 +127,9 @@ const BOT_ID_PREFIX = "dsh-";
  * needed.
  */
 function screenIdFor(agent, scopeKey, computerBotId) {
-  if (!shareComputers) return undefined;
+  // Account mode shares one machine across conversations, so a screen per
+  // conversation is exactly what keeps them from fighting over one display.
+  if (!shareComputers && !accountScope) return undefined;
   const own = typeof agent?.session?.id === "string" ? agent.session.id : undefined;
   if (!own || own === scopeKey) return undefined;
   return `${computerBotId}-${own}`;
@@ -192,6 +211,10 @@ function text(value) {
 async function releaseSession(scopeKey, { principal = false } = {}) {
   const computers = owned.get(scopeKey);
   if (!computers) return;
+  // In account mode the machine outlives every conversation: disposal must not
+  // take it down, or the first conversation to close would end everyone's
+  // computer. Only an explicit destroy stops it.
+  if (accountScope) return;
   // Only a principal ends a shared computer. A teammate's scope resolves to the
   // Team root, so an identity comparison cannot distinguish them — the caller's
   // `principal` judgement is the only signal, and it must be the sole gate.
@@ -210,7 +233,7 @@ function computerTools(ctx) {
     {
       name: "rakazo_computer_create",
       description:
-        "Create and start one disposable Linux desktop computer for this conversation. Returns its computerId, which every other rakazo_* tool needs. Call it once and keep the id; the bridge decides the computer's identity, so never invent or reuse an id. The computer is destroyed automatically when this conversation is disposed.",
+        "Create and start one disposable Linux desktop computer for this conversation. Returns its computerId, which every other rakazo_* tool needs. Call it once and keep the id; the bridge decides the computer's identity, so never invent or reuse an id. Disposing this conversation destroys the computer, except in a deployment that shares one machine across conversations, where the computer outlives them and only rakazo_computer_destroy stops it.",
       parameters: { type: "object", properties: {}, additionalProperties: false },
       output: {
         schema: { type: "object", properties: { computerId: { type: "string" } }, required: ["computerId"] },
@@ -536,10 +559,12 @@ export function apply(ctx, config) {
 
   for (const definition of computerTools(ctx)) ctx.tools.register(definition);
 
-  // A closed conversation must not leave a container running. In shared mode
-  // only the principal (Lead) ends the Team's computer: a teammate disposing is
-  // an ordinary roster change, not the end of the shared workspace.
+  // A closed conversation must not leave a container running. Two exceptions:
+  // in shared mode only the principal (Lead) ends the Team's computer, and in
+  // account mode no conversation ends it at all — the machine outlives them by
+  // design, and only an explicit `rakazo_computer_destroy` stops it.
   ctx.on("agent/disposed", ({ agent }) => {
+    if (accountScope) return;
     // A disposal event without a session identity carries nothing this plugin
     // owns, so it is skipped rather than reported: unlike a tool call, there is
     // no caller to fail. The scope lookup returns undefined in that case.
@@ -579,6 +604,12 @@ export function apply(ctx, config) {
  * rather than leaving a container running until the provider reclaims it.
  */
 async function pruneAbandoned(ctx) {
+  // In account mode there is one long-lived machine that outlives every
+  // conversation, so no session's absence can make it abandoned.
+  if (accountScope) {
+    console.log("rakazo-computer-use prune skipped: account mode keeps one persistent computer");
+    return;
+  }
   const sessionQuery = ctx.get("sessionQuery");
   if (!sessionQuery?.listSessions) {
     // Not a failure: a composition without a session store simply cannot prove a

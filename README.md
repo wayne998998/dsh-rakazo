@@ -21,11 +21,14 @@ The problem it actually solves is **ownership and authorization**, not "another 
   environment**, so `bash` can read `/proc/<pid>/environ`. Per-computer authorization is a capability:
   minted by the proxy, stored only as a hash, held in the plugin's memory. Knowing another session's
   computer id buys you nothing.
-- **Sharing is a stated trade-off.** With `share: true`, several agents of one Team use the same
-  computer while each gets its own screen (Rakazo keys a display per screen identity; three observers
-  really do produce three Xvfb instances). They can therefore read each other's files and logins. That
-  is what makes a handoff possible, so the docs say it plainly: *do not put a credential on a shared
-  computer that another teammate must not use — a shared computer is not a security boundary.*
+- **Sharing is a stated trade-off, in three steps.** By default one computer per conversation. With
+  `share: true`, the agents of one Team use the same computer while each gets its own screen (Rakazo
+  keys a display per screen identity; three observers really do produce three Xvfb instances). With
+  `account: <name>`, *every* conversation shares one long-lived machine, which is what reproduces a
+  persistent team computer: same files, same browser logins, across conversations. Each step trades
+  isolation for continuity, and the last one gives up cross-conversation isolation entirely — so the
+  docs say it plainly: *do not put a credential on a shared computer that another conversation must
+  not use. A shared computer is not a security boundary.*
 
 Two things this project cares about more than features:
 

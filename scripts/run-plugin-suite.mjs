@@ -7,7 +7,7 @@
  * copies it in, runs it, and removes the copy — so the repository stays the one
  * source of truth.
  *
- * Usage: node scripts/run-plugin-suite.mjs [--harness <path>]
+ * Usage: node scripts/run-plugin-suite.mjs [--harness <path>] [--suite <file>]
  *        DSH_HARNESS=/path/to/deepseek-harness npm run test:plugin
  */
 import { cpSync, existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -18,10 +18,13 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, "..");
 
+const suiteArg = process.argv.indexOf("--suite");
+const suiteRelative = suiteArg === -1 ? "test/plugin.mjs" : process.argv[suiteArg + 1];
+
 const argIndex = process.argv.indexOf("--harness");
 const harness = argIndex === -1 ? process.env.DSH_HARNESS : process.argv[argIndex + 1];
 if (!harness) {
-  console.error("usage: node scripts/run-plugin-suite.mjs --harness /path/to/deepseek-harness");
+  console.error("usage: node scripts/run-plugin-suite.mjs --harness /path/to/deepseek-harness [--suite test/account.mjs]");
   console.error("   or: DSH_HARNESS=/path/to/deepseek-harness npm run test:plugin");
   process.exit(2);
 }
@@ -42,8 +45,12 @@ try {
   cpSync(join(repo, ".env"), join(pluginCopy, ".env"), { force: true });
   // The staged copy imports the copied plugin and reads the copied env, since
   // it now lives in the harness root rather than beside its own project files.
-  const source = readFileSync(join(repo, "test/plugin.mjs"), "utf8")
-    .replace("../plugin/index.js", "./.rakazo-suite-plugin/index.js")
+  const source = readFileSync(join(repo, suiteRelative), "utf8")
+    .replace(/\.\.\/plugin\/index\.js/g, "./.rakazo-suite-plugin/index.js")
+    .replace(
+      'new URL("../plugin/index.js", import.meta.url).href',
+      'new URL("./.rakazo-suite-plugin/index.js", import.meta.url).href',
+    )
     .replace(
       'process.env.BRIDGE_ENV_FILE ?? fileURLToPath(new URL("../.env", import.meta.url))',
       'join(dirname(fileURLToPath(import.meta.url)), ".rakazo-suite-plugin", ".env")',
