@@ -41,6 +41,15 @@ report success without deleting, removing screen naming, reinstating the flawed 
 confirm the check actually fails. That discipline also caught two of the author's own tests that could
 never fail, one of which had been propping up a wrong "this is fixed" conclusion.
 
+## Getting started
+
+**[QUICKSTART.md](QUICKSTART.md)** — a running integration in about fifteen minutes, including the two
+steps people most often get wrong: Rakazo needs [two patches](patches/README.md) that are not
+upstream, and `pnpm --filter @rakazo/db generate` is not optional.
+
+For the full walkthrough, every configuration option, and an operating guide, use
+[docs/deployment.md](docs/deployment.md).
+
 ## How it fits together
 
 - **Rakazo** owns machines: it provisions Docker containers, keeps a persistent workspace, suspends
@@ -156,6 +165,7 @@ docs/                architecture, deployment, testing, security
 
 | Document | Read it for |
 | --- | --- |
+| [QUICKSTART.md](QUICKSTART.md) | The shortest path to a working install, and the two common traps |
 | [architecture.md](docs/architecture.md) | The three pieces, ownership model, identity, screens |
 | [deployment.md](docs/deployment.md) | Standing this up from scratch, and operating it |
 | [testing.md](docs/testing.md) | What each suite proves and how to extend them |
