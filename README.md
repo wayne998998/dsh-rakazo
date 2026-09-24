@@ -173,6 +173,9 @@ docs/                architecture, deployment, testing, security
 | [contributing.md](docs/contributing.md) | Conventions, invariants to preserve, known gaps |
 | [patches/README.md](patches/README.md) | The required upstream Rakazo changes |
 
+`npm run check:rakazo` (with `RAKAZO_DIR` set) verifies a Rakazo checkout can serve the API before you
+start anything; `npm test` runs it first.
+
 ## Known limitations
 
 These are deliberate and documented rather than accidental; see

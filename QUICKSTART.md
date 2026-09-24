@@ -60,7 +60,20 @@ curl -s -o /dev/null -w '%{http_code}\n' \
 # 200 = live, 404 = the surface is not mounted
 ```
 
-## 4. Start the bridge
+## 4. Check the checkout first
+
+A checkout without the patches still starts and only fails later as a bare `404` from the bridge,
+which reads like a configuration problem. Catch it now:
+
+```sh
+cd /path/to/dsh-rakazo
+RAKAZO_DIR=/path/to/rakazo npm run check:rakazo
+```
+
+It verifies the two source changes are present, that the route is actually mounted, and that both
+credentials are set — and tells you what to do if not. `npm test` runs it first.
+
+## 5. Start the bridge
 
 ```sh
 cd /path/to/dsh-rakazo
@@ -76,7 +89,7 @@ curl -s http://127.0.0.1:7400/health
 # {"ok":true,"api":"http://127.0.0.1:3100","computers":0}
 ```
 
-## 5. Install the plugin
+## 6. Install the plugin
 
 ```sh
 dsh plugin --profile web add /path/to/dsh-rakazo/dist/dsh-rakazo-computer-use/dsh-rakazo-computer-use-0.1.3.tgz
@@ -86,7 +99,7 @@ dsh --profile web --dump-config | grep -A6 rakazo-computer-use
 That should print a `dsh-rakazo-computer-use` layer with the bridge URL. Start `dsh` and the agent has
 seven `rakazo_*` tools.
 
-## 6. Prove it works
+## 7. Prove it works
 
 ```sh
 cd /path/to/dsh-rakazo

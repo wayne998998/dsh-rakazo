@@ -77,6 +77,18 @@ If `git am` reports a conflict, upstream has moved past `5dc3f824`. Either reset
 `git apply -3` and resolve — the surface is self-contained (`apps/api/src/external-computers.ts`,
 plus a mount in `app.ts` and two env keys), so conflicts should be mechanical.
 
+## Checking a checkout
+
+Whether you took the branch or applied the patches, verify the result before starting anything:
+
+```sh
+RAKAZO_DIR=/path/to/rakazo npm run check:rakazo
+```
+
+It checks the source files, the route mount, and both credentials, and exits non-zero with the fix if
+anything is missing. Without the patches an API starts fine and answers `404` on the external routes,
+which looks like a configuration mistake rather than a missing patch — hence the guard.
+
 ## After applying
 
 ```sh
