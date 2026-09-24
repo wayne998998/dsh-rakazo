@@ -1,0 +1,108 @@
+From 4334b09f76c1ba91f94ceb90fb3b33ab22be746c Mon Sep 17 00:00:00 2001
+From: wayne998998 <wayne998998@users.noreply.github.com>
+Date: Thu, 24 Sep 2026 23:00:47 +0800
+Subject: [PATCH 3/4] Answer 400 for a malformed browser action, not 500
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The /computers/:id/browser route parsed its request schema outside the try
+block, so a Zod failure escaped to the framework error handler and surfaced as
+500. A caller sending an unknown action kind, a `fill` without text, or an empty
+action list was told the server had faulted, when the request was simply
+malformed — and the offending field was never named.
+
+Parse with safeParse and answer 400 with the field path and message, matching
+the sibling routes that already do this for bad input. The container is never
+touched for a request that cannot be honoured.
+
+Verified the new cases fail against the previous status code (4 failures,
+"expected 500 to be 400") and pass after: supervisor suite 220 passed, 2 skipped.
+---
+ infra/sandboxes/supervisor/src/index.ts       | 16 +++++++++--
+ .../supervisor/src/page-browser-route.test.ts | 28 +++++++++++++++++++
+ 2 files changed, 41 insertions(+), 3 deletions(-)
+
+diff --git a/infra/sandboxes/supervisor/src/index.ts b/infra/sandboxes/supervisor/src/index.ts
+index 6d16dc62..852f1680 100644
+--- a/infra/sandboxes/supervisor/src/index.ts
++++ b/infra/sandboxes/supervisor/src/index.ts
+@@ -377,7 +377,17 @@ app.post("/computers/:id/browser", async (c) => {
+           .max(24),
+       }),
+     ])
+-    .parse(await c.req.json());
++    // A malformed action is caller error, like every other route here: answer
++    // 400 with the shape that was expected. Letting this throw would surface as
++    // a 500, which reads as a server fault and hides what to correct.
++    .safeParse(await c.req.json());
++  if (!body.success) {
++    const issue = body.error.issues[0];
++    const path = issue?.path.join(".");
++    const detail = issue ? `${issue.message}${path ? ` (at ${path})` : ""}` : "invalid request";
++    return c.json({ error: detail }, 400);
++  }
++  const input = body.data;
+   try {
+     const { container, layout } = await managedScreen(
+       c.req.param("id"),
+@@ -388,7 +398,7 @@ app.post("/computers/:id/browser", async (c) => {
+     );
+     const result = await runContainerCommand(
+       container,
+-      ["/usr/local/bin/rakazo-page-browser", body.command, JSON.stringify(body)],
++      ["/usr/local/bin/rakazo-page-browser", input.command, JSON.stringify(input)],
+       {
+         env: [
+           `DISPLAY=${layout.display}`,
+@@ -409,7 +419,7 @@ app.post("/computers/:id/browser", async (c) => {
+     return c.json({
+       ok: false,
+       fallback: "computer_act",
+-      uncertain: body.command === "act",
++      uncertain: input.command === "act",
+       error: "Page browser unavailable or interrupted. Inspect the screen before continuing.",
+     });
+   }
+diff --git a/infra/sandboxes/supervisor/src/page-browser-route.test.ts b/infra/sandboxes/supervisor/src/page-browser-route.test.ts
+index d9c6c64e..08f53f0d 100644
+--- a/infra/sandboxes/supervisor/src/page-browser-route.test.ts
++++ b/infra/sandboxes/supervisor/src/page-browser-route.test.ts
+@@ -55,6 +55,34 @@ async function snapshot(id: string, screen: string, lease: string, home = "home"
+   });
+ }
+ 
++it.each([
++  [{ command: "act", actions: [{ kind: "press", ref: "e1" }] }, "unknown action kind"],
++  [{ command: "act", actions: [{ kind: "fill", ref: "e1" }] }, "fill without text"],
++  [{ command: "act", actions: [] }, "empty action list"],
++  [{ command: "scroll" }, "unknown command"],
++])("answers 400, not 500, for %j", async (payload, _label) => {
++  // A caller that sends a malformed action must be told what to correct. This
++  // returned 500 before the schema was checked ahead of the try block, which
++  // reads as a server fault and hides the offending field.
++  const response = await supervisorApp.request("/computers/computer-invalid/browser", {
++    method: "POST",
++    headers: {
++      authorization: `Bearer ${resolveSupervisorToken(process.env)}`,
++      "content-type": "application/json",
++      "x-rakazo-bot-id": "home",
++      "x-rakazo-space-id": "space",
++      "x-rakazo-screen-id": "screen",
++      "x-rakazo-screen-lease-id": "run:1",
++    },
++    body: JSON.stringify(payload),
++  });
++  expect(response.status).toBe(400);
++  const { error } = (await response.json()) as { error: string };
++  expect(error).toBeTruthy();
++  // Never touch the container for a request that cannot be honoured.
++  expect(mock.exec).not.toHaveBeenCalled();
++});
++
+ it("resolves the owned display and refuses an older fence before running the helper", async () => {
+   expect(await (await snapshot("computer-lease", "first", "run:2")).json()).toMatchObject({
+     ok: true,
+-- 
+2.55.0
+

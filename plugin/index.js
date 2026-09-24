@@ -447,7 +447,46 @@ function computerTools(ctx) {
           computerId: { type: "string" },
           command: { type: "string", enum: ["navigate", "snapshot", "act"] },
           url: { type: "string", description: "Required for navigate." },
-          actions: { type: "array", description: "Required for act." },
+          actions: {
+            type: "array",
+            minItems: 1,
+            maxItems: 24,
+            description:
+              "Required for act: one step per snapshot element, addressed by the refs the latest snapshot returned, in order. Each step's kind is one of 'click', 'fill', or 'type' — no other value is accepted. Steps run in order and the request is refused outright, without touching the page, if any step is malformed; fix the named step and resend.",
+            items: {
+              description:
+                "{ kind: 'click', ref } to activate, or { kind: 'fill' | 'type', ref, text } to write into a field.",
+              oneOf: [
+                {
+                  type: "object",
+                  properties: {
+                    kind: {
+                      type: "string",
+                      const: "click",
+                      description: "Activate the element the ref names.",
+                    },
+                    ref: { type: "string", description: "The ref a snapshot returned for this element." },
+                  },
+                  required: ["kind", "ref"],
+                  additionalProperties: false,
+                },
+                {
+                  type: "object",
+                  properties: {
+                    kind: {
+                      type: "string",
+                      enum: ["fill", "type"],
+                      description: "fill replaces the field's value; type appends.",
+                    },
+                    ref: { type: "string", description: "The ref a snapshot returned for this element." },
+                    text: { type: "string", description: "Required: the text to write." },
+                  },
+                  required: ["kind", "ref", "text"],
+                  additionalProperties: false,
+                },
+              ],
+            },
+          },
         },
         required: ["computerId", "command"],
       },

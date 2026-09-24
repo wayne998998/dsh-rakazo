@@ -31,7 +31,7 @@ import { Context } from "@deepseek-ai/cordis";
 import ComputerUseRegistry from "@deepseek-ai/dsh-computer-use";
 import { ToolCallId } from "@deepseek-ai/dsh-llm";
 import SystemPrompt from "@deepseek-ai/dsh-system-prompt";
-import ToolRuntime from "@deepseek-ai/dsh-tools";
+import ToolRuntime, { validateJsonSchemaValue } from "@deepseek-ai/dsh-tools";
 
 /** The deployment env file: this project's own, overridable for other layouts. */
 const bridgeEnvFile = process.env.BRIDGE_ENV_FILE ?? fileURLToPath(new URL("../.env", import.meta.url));
@@ -153,6 +153,62 @@ const ctx = await mount({});
     "rakazo_file",
   ];
   check("tool surface is the merged seven", JSON.stringify(names) === JSON.stringify(expected), names.join(","));
+
+  // The step shape is Rakazo's, not the model's to guess: a step that reaches the
+  // provider without `kind` fails as a bare 500 deep in the adapter, so the
+  // schema has to carry it. Note what this does and does not buy: the schema is
+  // the model-facing contract (verified by `{ type: "click", ref }` answering
+  // 500 before `kind` was declared), but this plugin registers a raw
+  // `ToolDefinition`, so the runtime does not validate arguments against it —
+  // only `defineTool` does. Bad steps are therefore still the provider's to
+  // reject; the schema stops the model from producing them.
+  const browser = ctx.tools.schemas().find((schema) => schema.name === "rakazo_computer_browser");
+  const actions = browser?.parameters?.properties?.actions;
+  const branches = Array.isArray(actions?.items?.oneOf) ? actions.items.oneOf : [];
+  const branchFor = (kind) =>
+    branches.find((entry) => {
+      const declared = entry?.properties?.kind;
+      return declared?.const === kind || (Array.isArray(declared?.enum) && declared.enum.includes(kind));
+    });
+  const click = branchFor("click");
+  const typed = branchFor("type");
+  check(
+    "browser act declares click as { kind, ref } and text entry as { kind, ref, text }",
+    click?.required?.includes("kind") === true &&
+      click.required.includes("ref") === true &&
+      typed?.required?.includes("kind") === true &&
+      typed.required.includes("ref") === true &&
+      typed.required.includes("text") === true,
+    JSON.stringify(actions),
+  );
+  check(
+    "browser act constrains kind instead of accepting any object",
+    click?.properties?.kind?.const === "click",
+    JSON.stringify(actions),
+  );
+
+  // The harness's subset only enforces `const`/`enum` beside a `type`, and an
+  // unenforced `const` makes both oneOf branches match: the valid `fill`/`type`
+  // steps then fail as "matched 2". Declare the type, or the shape is worse than
+  // no shape at all — this is what the first draft of the schema got wrong.
+  check(
+    "browser act's oneOf branches declare a type, so const/enum are enforced",
+    click?.properties?.kind?.type === "string" && typed?.properties?.kind?.type === "string",
+    JSON.stringify(actions),
+  );
+
+  // Declaring the shape is only worth it if the declaration itself draws the
+  // line, so assert what a JSON-Schema validator makes of one step: one that
+  // names no `kind` is a violation, the two accepted forms are not.
+  const actionSchema = actions?.items ?? {};
+  const wrongStep = validateJsonSchemaValue(actionSchema, { type: "click", ref: "r" });
+  const rightSteps = [
+    ...validateJsonSchemaValue(actionSchema, { kind: "click", ref: "r" }),
+    ...validateJsonSchemaValue(actionSchema, { kind: "type", ref: "r", text: "t" }),
+    ...validateJsonSchemaValue(actionSchema, { kind: "fill", ref: "r", text: "t" }),
+  ];
+  check("browser act rejects a step without kind", wrongStep.length > 0, JSON.stringify(wrongStep));
+  check("browser act accepts well-formed steps", rightSteps.length === 0, JSON.stringify(rightSteps));
 }
 
 // ---- One computer per session, isolated from another ----------------------

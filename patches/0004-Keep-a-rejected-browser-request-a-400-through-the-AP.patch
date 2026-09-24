@@ -1,0 +1,107 @@
+From 9279e7b4f1598c09ede081acf7aa8b4f79c2bc0c Mon Sep 17 00:00:00 2001
+From: wayne998998 <wayne998998@users.noreply.github.com>
+Date: Thu, 24 Sep 2026 23:04:27 +0800
+Subject: [PATCH 4/4] Keep a rejected browser request a 400 through the API
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The supervisor answers 400 with the offending field for a malformed browser
+action, but the docker adapter threw away the body and status, and the API
+folded every unrecognised failure into 502. A caller that sent an unknown
+action kind was told "page browser failed: 400" under a 502 — the status said
+server fault, and nothing named the field to fix.
+
+Preserve the supervisor's detail in the adapter and carry its status on the
+error; the API keeps a reported 4xx and only falls back to 502 otherwise. The
+existing 404 normalization is unchanged.
+
+Verified end-to-end through the bridge: a bad kind now answers 400 with
+"(at actions.0.kind)", while a valid snapshot still answers 200. The new test
+fails against the previous mapping (502 to 400); api and adapter suites: 39 and
+19 passed.
+---
+ apps/api/src/external-computers.test.ts | 23 +++++++++++++++++++++++
+ apps/api/src/external-computers.ts      | 10 +++++++++-
+ packages/adapters/src/docker-sandbox.ts | 10 +++++++++-
+ 3 files changed, 41 insertions(+), 2 deletions(-)
+
+diff --git a/apps/api/src/external-computers.test.ts b/apps/api/src/external-computers.test.ts
+index b8b6affa..1b50a21f 100644
+--- a/apps/api/src/external-computers.test.ts
++++ b/apps/api/src/external-computers.test.ts
+@@ -305,6 +305,29 @@ describe("external computer routes", () => {
+     expect(await gateway.json()).toEqual({ error: "supervisor unreachable: connect ECONNREFUSED" });
+   });
+ 
++  it("keeps a provider's own 4xx instead of reporting 502", async () => {
++    // A rejected request is the caller's to fix. Reporting 502 told the caller
++    // the server had faulted and dropped the detail naming the offending field.
++    const rejected = fakeProvider({
++      pageBrowser: vi.fn(async () => {
++        const error = new Error(
++          "page browser failed: {\"error\":\"Invalid discriminator value. Expected 'click' | 'fill' | 'type' (at actions.0.kind)\"}",
++        );
++        throw Object.assign(error, { status: 400 });
++      }) as unknown as SandboxProvider["pageBrowser"],
++    });
++    const response = await app(rejected.provider).request(
++      "/api/v1/external/computers/container-1/browser",
++      {
++        method: "POST",
++        headers: { authorization: `Bearer ${TOKEN}`, "x-rakazo-bot-id": "dsh-abc123" },
++        body: JSON.stringify({ command: "act", actions: [{ kind: "press", ref: "e1" }] }),
++      },
++    );
++    expect(response.status).toBe(400);
++    expect((await response.json()).error).toMatch(/actions\.0\.kind/);
++  });
++
+   it("threads a valid screen id into the provider context over HTTP", async () => {
+     const { provider, calls } = fakeProvider();
+     const instance = app(provider);
+diff --git a/apps/api/src/external-computers.ts b/apps/api/src/external-computers.ts
+index 1a7875ac..037a3e68 100644
+--- a/apps/api/src/external-computers.ts
++++ b/apps/api/src/external-computers.ts
+@@ -303,7 +303,15 @@ export function mountExternalComputerRoutes(
+       logger.warn("external computer request failed", { "external.error": message });
+       // A provider reports a missing container as an error whose message carries
+       // its own 404. Callers need that as a status, so it is normalized here.
+-      const status: ExternalStatus = /\b404\b|not found/i.test(message) ? 404 : 502;
++      // A provider that reports its own status keeps it: a rejected request is
++      // the caller's to fix, and must not read as a server fault.
++      const reported = (error as { status?: unknown } | null)?.status;
++      const status: ExternalStatus =
++        typeof reported === "number" && reported >= 400 && reported < 500
++          ? (reported as ExternalStatus)
++          : /\b404\b|not found/i.test(message)
++            ? 404
++            : 502;
+       return c.json({ error: message }, status);
+     }
+   };
+diff --git a/packages/adapters/src/docker-sandbox.ts b/packages/adapters/src/docker-sandbox.ts
+index 07043bf1..45db7634 100644
+--- a/packages/adapters/src/docker-sandbox.ts
++++ b/packages/adapters/src/docker-sandbox.ts
+@@ -216,7 +216,15 @@ export class DockerSandboxProvider implements SandboxProvider {
+       redirect: "error",
+       signal: context.signal,
+     });
+-    if (!res.ok) throw new Error(`page browser failed: ${res.status}`);
++    if (!res.ok) {
++      // Keep the supervisor's status and detail: it names the offending field
++      // (for example "invalid actions.0.kind: ..."). Collapsing this to a bare
++      // status turns a caller error into an opaque server fault upstream.
++      const detail = await safeBody(res, context.signal);
++      throw Object.assign(new Error(detail ? `page browser failed: ${detail}` : `page browser failed: ${res.status}`), {
++        status: res.status,
++      });
++    }
+     return readSandboxJson<PageBrowserResult>(res, context.signal, 512 * 1024);
+   }
+ 
+-- 
+2.55.0
+

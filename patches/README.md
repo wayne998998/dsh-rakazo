@@ -89,6 +89,21 @@ It checks the source files, the route mount, and both credentials, and exits non
 anything is missing. Without the patches an API starts fine and answers `404` on the external routes,
 which looks like a configuration mistake rather than a missing patch — hence the guard.
 
+## What the series contains
+
+| Patch | Change |
+|---|---|
+| 0001 | The service-account computer API external harnesses call |
+| 0002 | One computer serving a screen per caller |
+| 0003 | A malformed browser action answers 400, not 500 |
+| 0004 | A rejected browser request stays a 400 through the API |
+
+Patches 0003 and 0004 matter to anyone driving `rakazo_computer_browser`: before
+them a bad action produced a 500 (or a 502 once wrapped), naming neither the
+offending field nor the allowed values. Now the reply is a 400 carrying the
+field path, e.g. `Invalid discriminator value. Expected 'click' | 'fill' | 'type'
+(at actions.0.kind)`.
+
 ## After applying
 
 ```sh

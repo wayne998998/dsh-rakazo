@@ -1,7 +1,7 @@
 From 599336d78c8b3cfc65e99734ab101b8021e055dd Mon Sep 17 00:00:00 2001
 From: wayne <wayne@localhost>
 Date: Tue, 22 Sep 2026 03:08:34 +0800
-Subject: [PATCH 2/2] feat(computer): let one computer serve a screen per
+Subject: [PATCH 2/4] feat(computer): let one computer serve a screen per
  caller
 
 Every caller of a shared computer displayed on the same screen, because the
